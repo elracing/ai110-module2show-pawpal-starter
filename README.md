@@ -22,6 +22,15 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Smarter Scheduling
+
+PawPal+ now includes smarter schedule handling that:
+
+- Prioritizes required tasks first and fills remaining time with optional tasks by priority
+- Respects `available_minutes_per_day` and raises a clear error when required work exceeds available time
+- Supports recurring tasks (`daily`, `weekly`) by auto-enqueuing next occurrences
+- Has schedule helpers: mark tasks complete, sort by scheduled time, filter by completed status and pet, and conflict detection
+
 ## Getting started
 
 ### Setup

@@ -13,6 +13,8 @@ class Task:
     required: bool = True
     description: Optional[str] = None
     completed: bool = False
+    time: Optional[str] = None  # optional scheduled time in "HH:MM" format
+    frequency: str = "none"  # none|daily|weekly
 
     def __post_init__(self):
         """Validate Task fields after initialization."""
@@ -35,11 +37,38 @@ class Task:
         """Return a one-line summary of the task."""
         req = "required" if self.required else "optional"
         status = "done" if self.completed else "pending"
-        return f"{self.title} ({self.duration_minutes}m, {self.priority}, {req}, {status})"
+        time_str = f", starts at {self.time}" if self.time else ""
+        return f"{self.title} ({self.duration_minutes}m, {self.priority}, {req}, {status}{time_str})"
 
-    def mark_complete(self) -> None:
-        """Mark the task as complete."""
+    def mark_complete(self) -> Optional["Task"]:
+        """Mark the task as complete and return a next occurrence for recurring tasks."""
         self.completed = True
+        if self.frequency in {"daily", "weekly"}:
+            return self._next_occurrence()
+        return None
+
+    def _next_occurrence(self) -> "Task":
+        """Return a new Task instance for the next recurrence."""
+        if self.frequency not in {"daily", "weekly"}:
+            raise ValueError("No recurrence for non-recurring task")
+
+        next_task = Task(
+            title=self.title,
+            duration_minutes=self.duration_minutes,
+            priority=self.priority,
+            category=self.category,
+            required=self.required,
+            description=self.description,
+            completed=False,
+            time=self.time,
+            frequency=self.frequency,
+        )
+
+        return next_task
+
+    def set_time(self, hhmm: str) -> None:
+        """Set task time in HH:MM format."""
+        self.time = hhmm
 
 
 @dataclass
@@ -205,4 +234,61 @@ class DailyPlan:
         if self.explanation is None:
             return "No plan generated yet."
         return self.explanation
+
+    def check_conflicts(self) -> List[str]:
+        """Return warning messages for tasks scheduled at overlapping times."""
+        warnings: List[str] = []
+        time_map = {}
+
+        for task in self.scheduled_tasks:
+            if task.time is None:
+                continue
+            time_map.setdefault(task.time, []).append(task)
+
+        for time_slot, tasks in time_map.items():
+            if len(tasks) > 1:
+                pet_names = set((t.description or "unknown").strip() for t in tasks)
+                warning = (
+                    f"Conflict at {time_slot}: {len(tasks)} tasks scheduled at same time (" 
+                    + ", ".join(t.title for t in tasks)
+                    + ") for pets: "
+                    + ", ".join(sorted(pet_names))
+                )
+                warnings.append(warning)
+
+        return warnings
+
+    def mark_task_complete(self, task: Task) -> None:
+        """Mark a scheduled task complete (and enqueue next occurrence if recurring)."""
+        if task not in self.scheduled_tasks:
+            raise ValueError("Task is not in today's schedule")
+
+        next_task = task.mark_complete()
+        self.remove_task(task)
+
+        if next_task is not None:
+            self.owner.add_task(next_task)
+
+    def sort_by_time(self, ascending: bool = True) -> None:
+        """Sort scheduled tasks by their time field (HH:MM)."""
+        # Using lambda key with HH:MM will naturally sort lexicographically as time strings
+        # e.g. '08:15' < '09:30' < '14:45'.
+        self.scheduled_tasks = sorted(
+            [t for t in self.scheduled_tasks if t.time],
+            key=lambda task: task.time,
+            reverse=not ascending,
+        )
+
+    def filter_tasks(self, completed: Optional[bool] = None, pet_name: Optional[str] = None) -> List[Task]:
+        """Filter scheduled tasks by completion status and/or pet name in description."""
+        result = self.scheduled_tasks
+
+        if completed is not None:
+            result = [t for t in result if t.completed == completed]
+
+        if pet_name is not None:
+            result = [t for t in result if t.description and pet_name.lower() in t.description.lower()]
+
+        return result
+
 

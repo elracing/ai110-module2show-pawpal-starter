@@ -14,6 +14,8 @@ User should be able to add a pet, schedule feeding and make daily plans for pets
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
+no
+
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
@@ -23,10 +25,14 @@ User should be able to add a pet, schedule feeding and make daily plans for pets
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+scheduler uses time and priority, they re given a priority number depnending on effort
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
+
+scheduler fills all the required tasks first then optional, its reasonale as required are assumed essentials.
 
 ---
 
@@ -36,6 +42,8 @@ User should be able to add a pet, schedule feeding and make daily plans for pets
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
+
+it helped me write the classes, the skeleton creation was most helpful
 
 **b. Judgment and verification**
 

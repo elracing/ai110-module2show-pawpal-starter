@@ -38,12 +38,28 @@ st.divider()
 
 st.subheader("Quick Demo Inputs (UI only)")
 owner_name = st.text_input("Owner name", value="Jordan")
-pet_name = st.text_input("Pet name", value="Mochi")
-species = st.selectbox("Species", ["dog", "cat", "other"])
 owner_available = st.number_input("Available minutes per day", min_value=10, max_value=1440, value=120)
 
+if "pets" not in st.session_state:
+    st.session_state.pets = []
+
+with st.expander("Add a Pet"):
+    pet_name = st.text_input("Pet name", value="Mochi")
+    species = st.selectbox("Species", ["dog", "cat", "other"])
+    age = st.number_input("Age", min_value=0, max_value=30, value=3)
+    energy_level = st.selectbox("Energy level", ["low", "medium", "high"], index=2)
+
+    if st.button("Add Pet"):
+        pet = Dog(name=pet_name, species=species, age=age, energy_level=energy_level)
+        st.session_state.pets.append(pet)
+
+if st.session_state.pets:
+    st.write("Pets:")
+    for i, pet in enumerate(st.session_state.pets, start=1):
+        st.write(f"{i}. {pet.name} ({pet.species}, energy {pet.energy_level})")
+
 st.markdown("### Tasks")
-st.caption("Add a few tasks. These feed into your scheduler.")
+st.caption("Add a task to the chosen owner/pet and schedule it.")
 
 if "tasks" not in st.session_state:
     st.session_state.tasks = []
@@ -60,6 +76,18 @@ if st.button("Add task"):
     st.session_state.tasks.append(
         {"title": task_title, "duration_minutes": int(duration), "priority": priority, "required": True}
     )
+
+    # use Owner.add_task method from domain model
+    if "owner" in st.session_state and isinstance(st.session_state.owner, Owner):
+        st.session_state.owner.add_task(
+            Task(title=task_title, duration_minutes=int(duration), priority=priority, required=True)
+        )
+
+    # assign task to first pet if available
+    if st.session_state.pets:
+        st.session_state.pets[0].add_task(
+            Task(title=task_title, duration_minutes=int(duration), priority=priority, required=True)
+        )
 
 if st.session_state.tasks:
     st.write("Current tasks:")
@@ -78,18 +106,54 @@ if st.button("Generate schedule"):
     elif not st.session_state.tasks:
         st.error("Please add at least one task")
     else:
-        owner = Owner(name=owner_name, available_minutes_per_day=int(owner_available))
-        dog = Dog(name=pet_name, species=species)
+        if "owner" in st.session_state and isinstance(st.session_state.owner, Owner):
+            owner = st.session_state.owner
+        else:
+            owner = Owner(name=owner_name, available_minutes_per_day=int(owner_available))
+            st.session_state.owner = owner
 
+        if st.session_state.pets and isinstance(st.session_state.pets[0], Dog):
+            dog = st.session_state.pets[0]
+        else:
+            # fallback if no pet added
+            dog = Dog(name=pet_name, species=species)
+            if "pets" not in st.session_state:
+                st.session_state.pets = []
+            st.session_state.pets.append(dog)
+
+        owner.tasks.clear()
         for raw in st.session_state.tasks:
-            owner.add_task(
-                Task(
-                    title=raw["title"],
-                    duration_minutes=int(raw["duration_minutes"]),
-                    priority=raw["priority"],
-                    required=raw.get("required", True),
-                )
+            task = Task(
+                title=raw["title"],
+                duration_minutes=int(raw["duration_minutes"]),
+                priority=raw["priority"],
+                required=raw.get("required", True),
             )
+            owner.add_task(task)
+            dog.add_task(task)
+
+        plan = DailyPlan(owner=owner, dog=dog)
+        try:
+            plan.generate_schedule()
+            st.success("Schedule generated")
+            st.markdown("### Plan explanation")
+            st.text(plan.explain_plan())
+
+            st.markdown("### Scheduled tasks")
+            st.table(
+                [
+                    {
+                        "title": t.title,
+                        "duration": t.duration_minutes,
+                        "priority": t.priority,
+                        "category": t.category,
+                        "required": t.required,
+                    }
+                    for t in plan.scheduled_tasks
+                ]
+            )
+        except Exception as exc:
+            st.error(f"Failed to generate schedule: {exc}")
 
         plan = DailyPlan(owner=owner, dog=dog)
         try:
