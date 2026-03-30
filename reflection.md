@@ -6,7 +6,8 @@
 
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
-User should be able to add a pet, schedule feeding and make daily plans for pets
+
+User should be able to add a pet, schedule feeding and make daily plans for pets. I chose the class pet, owner, task and daily plan which will detail the pet, the owner, the task and the daily plan comprissed of tasks for a pet.
 
 **b. Design changes**
 

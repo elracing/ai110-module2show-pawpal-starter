@@ -12,10 +12,34 @@ class Task:
     category: str = "general"  # walk/feed/meds/enrichment/grooming
     required: bool = True
     description: Optional[str] = None
+    completed: bool = False
+
+    def __post_init__(self):
+        """Validate Task fields after initialization."""
+        valid_priorities = {"low", "medium", "high"}
+        if self.priority not in valid_priorities:
+            raise ValueError(f"Invalid priority '{self.priority}'; choose from {valid_priorities}")
+
+        if self.duration_minutes <= 0:
+            raise ValueError("duration_minutes must be > 0")
+
+        if not self.title.strip():
+            raise ValueError("title cannot be empty")
 
     def estimate_effort(self) -> int:
+        """Return numeric effort level for priority."""
         mapping = {"low": 1, "medium": 2, "high": 3}
-        return mapping.get(self.priority, 1)
+        return mapping[self.priority]
+
+    def summary(self) -> str:
+        """Return a one-line summary of the task."""
+        req = "required" if self.required else "optional"
+        status = "done" if self.completed else "pending"
+        return f"{self.title} ({self.duration_minutes}m, {self.priority}, {req}, {status})"
+
+    def mark_complete(self) -> None:
+        """Mark the task as complete."""
+        self.completed = True
 
 
 @dataclass
@@ -27,13 +51,41 @@ class Dog:
     size: Optional[str] = None
     energy_level: Optional[str] = None  # low/medium/high
     needs_medication: bool = False
+    tasks: List[Task] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate Dog fields after initialization."""
+        if not self.name.strip():
+            raise ValueError("Dog name cannot be empty")
+
+        if self.species.lower() not in {"dog", "cat", "other"}:
+            raise ValueError("species must be 'dog', 'cat', or 'other'")
 
     def need_summary(self) -> str:
-        return (
-            f"{self.name}: {self.species}, "
-            f"medication required={self.needs_medication}, "
-            f"energy={self.energy_level or 'unknown'}"
-        )
+        """Return a text summary of the dog's needs."""
+        base = f"{self.name} ({self.species})"
+        if self.needs_medication:
+            base += ", needs medication"
+        if self.energy_level:
+            base += f", energy={self.energy_level}"
+        return base
+
+    def is_high_energy(self) -> bool:
+        """Return True when the dog's energy is high."""
+        return (self.energy_level or "").lower() == "high"
+
+    def add_task(self, task: Task) -> None:
+        """Add a task to the dog's task list."""
+        self.tasks.append(task)
+
+    def remove_task(self, task: Task) -> None:
+        """Remove a task from the dog's task list."""
+        self.tasks = [t for t in self.tasks if t != task]
+
+    @property
+    def task_count(self) -> int:
+        """Return the number of tasks assigned to the dog."""
+        return len(self.tasks)
 
 
 @dataclass
@@ -44,58 +96,113 @@ class Owner:
     tasks: List[Task] = field(default_factory=list)
     preferences: List[str] = field(default_factory=list)
 
+    def __post_init__(self):
+        """Validate Owner fields after initialization."""
+        if not self.name.strip():
+            raise ValueError("Owner name cannot be empty")
+
+        if self.available_minutes_per_day <= 0:
+            raise ValueError("available_minutes_per_day must be positive")
+
     def add_task(self, task: Task) -> None:
+        """Add a task to the owner's task list."""
         self.tasks.append(task)
 
     def remove_task(self, task: Task) -> None:
+        """Remove a task from the owner's task list."""
         self.tasks = [t for t in self.tasks if t != task]
 
     def get_priority_tasks(self, min_priority: str = "medium") -> List[Task]:
+        """Return tasks with priority >= minimum threshold."""
         order = {"low": 0, "medium": 1, "high": 2}
         thresh = order.get(min_priority, 1)
         return [t for t in self.tasks if order.get(t.priority, 0) >= thresh]
 
+    def summary(self) -> str:
+        """Return a summary of the owner's status."""
+        return (
+            f"{self.name} has {len(self.tasks)} tasks, "
+            f"{self.available_minutes_per_day} available minutes/day"
+        )
+
 
 @dataclass
 class DailyPlan:
+    owner: Owner
+    dog: Dog
     day: date = field(default_factory=date.today)
-    owner: Owner = field(default_factory=Owner)
-    dog: Dog = field(default_factory=Dog)
     scheduled_tasks: List[Task] = field(default_factory=list)
     total_time_minutes: int = 0
     explanation: Optional[str] = None
 
     def add_task(self, task: Task) -> None:
-        self.scheduled_tasks.append(task)
-        self.total_time_minutes += task.duration_minutes
+        """Add a task to the schedule if it is not already included."""
+        if task not in self.scheduled_tasks:
+            self.scheduled_tasks.append(task)
+            self.total_time_minutes += task.duration_minutes
 
     def remove_task(self, task: Task) -> None:
+        """Remove a task from the schedule and recalc total time."""
         self.scheduled_tasks = [t for t in self.scheduled_tasks if t != task]
         self.total_time_minutes = sum(t.duration_minutes for t in self.scheduled_tasks)
 
     def generate_schedule(self, available_minutes: Optional[int] = None) -> None:
+        """Generate a schedule from owner tasks, respecting time limits and priorities."""
         if available_minutes is None:
             available_minutes = self.owner.available_minutes_per_day
 
+        if available_minutes <= 0:
+            raise ValueError("available_minutes must be positive")
+
         order = {"low": 0, "medium": 1, "high": 2}
-        sorted_tasks = sorted(
-            self.owner.tasks,
-            key=lambda t: order.get(t.priority, 0),
-            reverse=True,
-        )
+
+        required_tasks = [t for t in self.owner.tasks if t.required]
+        optional_tasks = [t for t in self.owner.tasks if not t.required]
+
+        required_tasks.sort(key=lambda t: order[t.priority], reverse=True)
+        optional_tasks.sort(key=lambda t: order[t.priority], reverse=True)
 
         self.scheduled_tasks.clear()
         self.total_time_minutes = 0
 
-        for task in sorted_tasks:
+        def try_add(task: Task) -> bool:
             if self.total_time_minutes + task.duration_minutes <= available_minutes:
                 self.scheduled_tasks.append(task)
                 self.total_time_minutes += task.duration_minutes
+                return True
+            return False
 
-        self.explanation = (
-            f"Selected {len(self.scheduled_tasks)} tasks "
-            f"({self.total_time_minutes}m of {available_minutes}m)."
-        )
+        for task in required_tasks:
+            if not try_add(task):
+                raise RuntimeError(
+                    f"Cannot fit required task {task.title} in available time ({available_minutes}m)"
+                )
+
+        for task in optional_tasks:
+            try_add(task)
+
+        self.explanation = self._build_explanation(available_minutes)
+
+    def _build_explanation(self, available_minutes: int) -> str:
+        """Build a human-friendly explanation text for the generated schedule."""
+        lines = [
+            f"Daily plan for {self.owner.name} and {self.dog.name} on {self.day.isoformat()}",
+            f"Allocated {self.total_time_minutes}/{available_minutes} minutes",
+            "Scheduled tasks:",
+        ]
+
+        for task in self.scheduled_tasks:
+            lines.append(f"- {task.summary()}")
+
+        if self.total_time_minutes < available_minutes:
+            slack = available_minutes - self.total_time_minutes
+            lines.append(f"Time slack: {slack} minutes remaining")
+
+        return "\n".join(lines)
 
     def explain_plan(self) -> str:
-        return self.explanation or "No schedule generated yet."
+        """Return the written plan explanation or a placeholder if none."""
+        if self.explanation is None:
+            return "No plan generated yet."
+        return self.explanation
+

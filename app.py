@@ -1,4 +1,5 @@
 import streamlit as st
+from pawpal_system import Owner, Dog, Task, DailyPlan
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -8,10 +9,7 @@ st.markdown(
     """
 Welcome to the PawPal+ starter app.
 
-This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
-but **it does not implement the project logic**. Your job is to design the system and build it.
-
-Use this app as your interactive demo once your backend classes/functions exist.
+This is now wired to the core PawPal scheduling model.
 """
 )
 
@@ -42,9 +40,10 @@ st.subheader("Quick Demo Inputs (UI only)")
 owner_name = st.text_input("Owner name", value="Jordan")
 pet_name = st.text_input("Pet name", value="Mochi")
 species = st.selectbox("Species", ["dog", "cat", "other"])
+owner_available = st.number_input("Available minutes per day", min_value=10, max_value=1440, value=120)
 
 st.markdown("### Tasks")
-st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
+st.caption("Add a few tasks. These feed into your scheduler.")
 
 if "tasks" not in st.session_state:
     st.session_state.tasks = []
@@ -59,7 +58,7 @@ with col3:
 
 if st.button("Add task"):
     st.session_state.tasks.append(
-        {"title": task_title, "duration_minutes": int(duration), "priority": priority}
+        {"title": task_title, "duration_minutes": int(duration), "priority": priority, "required": True}
     )
 
 if st.session_state.tasks:
@@ -71,12 +70,49 @@ else:
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("Click to generate the daily plan from your tasks.")
 
 if st.button("Generate schedule"):
-    st.warning(
-        "Not implemented yet. Next step: create your scheduling logic (classes/functions) and call it here."
-    )
+    if not owner_name.strip() or not pet_name.strip():
+        st.error("Owner and pet names must be provided")
+    elif not st.session_state.tasks:
+        st.error("Please add at least one task")
+    else:
+        owner = Owner(name=owner_name, available_minutes_per_day=int(owner_available))
+        dog = Dog(name=pet_name, species=species)
+
+        for raw in st.session_state.tasks:
+            owner.add_task(
+                Task(
+                    title=raw["title"],
+                    duration_minutes=int(raw["duration_minutes"]),
+                    priority=raw["priority"],
+                    required=raw.get("required", True),
+                )
+            )
+
+        plan = DailyPlan(owner=owner, dog=dog)
+        try:
+            plan.generate_schedule()
+            st.success("Schedule generated")
+            st.markdown("### Plan explanation")
+            st.text(plan.explain_plan())
+
+            st.markdown("### Scheduled tasks")
+            st.table(
+                [
+                    {
+                        "title": t.title,
+                        "duration": t.duration_minutes,
+                        "priority": t.priority,
+                        "category": t.category,
+                        "required": t.required,
+                    }
+                    for t in plan.scheduled_tasks
+                ]
+            )
+        except Exception as exc:
+            st.error(f"Failed to generate schedule: {exc}")
     st.markdown(
         """
 Suggested approach:
