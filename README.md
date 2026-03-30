@@ -41,6 +41,23 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Testing PawPal+
+
+Run the automated test suite with:
+
+```bash
+python -m pytest
+```
+
+Current tests cover:
+- Task state transitions (`mark_complete`, recurrence enqueue)
+- Owner and pet task list management
+- Schedule generation respecting required/optional tasks and time constraints
+- Sorting tasks chronologically (`sort_by_time`)
+- Conflict detection for duplicated task times (`check_conflicts`)
+
+Confidence Level: ⭐⭐⭐⭐⭐ (5/5) based on passing tests and scenario coverage.
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
