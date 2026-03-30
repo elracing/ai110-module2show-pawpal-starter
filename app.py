@@ -135,19 +135,31 @@ if st.button("Generate schedule"):
         plan = DailyPlan(owner=owner, dog=dog)
         try:
             plan.generate_schedule()
+            plan.sort_by_time()
+
             st.success("Schedule generated")
             st.markdown("### Plan explanation")
             st.text(plan.explain_plan())
 
-            st.markdown("### Scheduled tasks")
+            conflicts = plan.check_conflicts()
+            if conflicts:
+                st.warning("Task conflicts detected. Fix overlapping times for safer pet care:")
+                for c in conflicts:
+                    st.warning(c)
+            else:
+                st.success("No conflicts detected.")
+
+            st.markdown("### Scheduled tasks (sorted by time)")
             st.table(
                 [
                     {
+                        "time": t.time or "unscheduled",
                         "title": t.title,
                         "duration": t.duration_minutes,
                         "priority": t.priority,
                         "category": t.category,
                         "required": t.required,
+                        "completed": t.completed,
                     }
                     for t in plan.scheduled_tasks
                 ]
@@ -155,7 +167,6 @@ if st.button("Generate schedule"):
         except Exception as exc:
             st.error(f"Failed to generate schedule: {exc}")
 
-        plan = DailyPlan(owner=owner, dog=dog)
         try:
             plan.generate_schedule()
             st.success("Schedule generated")

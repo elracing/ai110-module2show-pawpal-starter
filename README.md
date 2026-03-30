@@ -22,6 +22,16 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Features
+
+- Required-first scheduling: required tasks are always attempted first, then optional tasks are added while time remains.
+- Priority-based task selection: both required and optional tasks are sorted by priority before scheduling.
+- Daily recurrence support: recurring tasks (`daily`, `weekly`) auto-create the next occurrence when completed.
+- Chronological task sorting: `sort_by_time` presents tasks by `time` (HH:MM). 
+- Conflict detection: `check_conflicts` flags tasks that share the same time slot.
+- Complete and task cycling: `mark_task_complete` sets completion, removes task from today's schedule, and enqueues next recurrence if applicable.
+- Persistence in the session: the Streamlit UI retains pet/task state and reflects changes immediately.
+
 ## Smarter Scheduling
 
 PawPal+ now includes smarter schedule handling that:
@@ -67,3 +77,7 @@ Confidence Level: ⭐⭐⭐⭐⭐ (5/5) based on passing tests and scenario cove
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+Demo:
+
+![alt text](demo.png)

@@ -59,10 +59,14 @@ it helped me write the classes, the skeleton creation was most helpful
 - What behaviors did you test?
 - Why were these tests important?
 
+Tested for conflict resolutiion the most, as there are multiple priorities set in place for the scheduler.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+Im confident it works, as it ran tests better than I could. It also works when used manually. I would test for non animal edge cases next.
 
 ---
 
@@ -71,11 +75,14 @@ it helped me write the classes, the skeleton creation was most helpful
 **a. What went well**
 
 - What part of this project are you most satisfied with?
+how helpful AI was to make this quickly.
 
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
+better UI redesign. 
 
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+AI does some great testing.
